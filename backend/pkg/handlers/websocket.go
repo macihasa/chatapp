@@ -92,7 +92,7 @@ func WsNewClient(w http.ResponseWriter, r *http.Request) {
 func sendMessage(client *client) {
 	for {
 		select {
-		case message, ok := <- client.send:
+		case message, ok := <-client.send:
 			if !ok {
 				hub.unregister <- client
 				err := client.conn.Close()
@@ -101,7 +101,7 @@ func sendMessage(client *client) {
 					break
 				}
 			}
-			client.conn.WriteMessage(1, message)	
+			client.conn.WriteMessage(1, message)
 		}
 	}
 }
