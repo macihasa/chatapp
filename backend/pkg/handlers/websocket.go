@@ -98,7 +98,7 @@ func sendMessage(client *client) {
 				err := client.conn.Close()
 				if err != nil {
 					log.Println(err)
-					break
+					return
 				}
 			}
 			client.conn.WriteMessage(1, message)
