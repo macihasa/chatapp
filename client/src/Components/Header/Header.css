@@ -1,0 +1,14 @@
+.Header {
+  display: flex;
+  width: 90%;
+  height: 40px;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0px 5%;
+}
+.Header ul {
+  width: 40%;
+  display: flex;
+  justify-content: space-between;
+  list-style: none;
+}

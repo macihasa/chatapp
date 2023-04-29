@@ -1,0 +1,10 @@
+.App {
+}
+
+.AppContainer {
+  display: flex;
+  flex-direction: column;
+  margin: 15%;
+  border-radius: 5px;
+  background-color: lightcyan;
+}
