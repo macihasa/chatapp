@@ -7,7 +7,11 @@ import (
 
 func InitMux() *mux.Router {
 	r := mux.NewRouter()
-	r.HandleFunc("/", handlers.Landing)
+	// HTTP
+	r.HandleFunc("/", handlers.Landing).Methods("GET")
+	r.HandleFunc("/users/register", handlers.RegisterNewUser).Methods("POST")
+
+	// WEBSOCKET
 	r.HandleFunc("/ws", handlers.WsNewClient)
 	return r
 }
