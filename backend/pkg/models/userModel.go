@@ -15,7 +15,7 @@ type UserModel struct {
 	Friends  []string           `json:"friends,omitempty" bson:"friends,omitempty"`
 }
 
-func (u UserModel) Register() (interface{}, error) {
+func (u UserModel) Register() (primitive.ObjectID, error) {
 	var db = MongoDBClient.Database("chat")
 	collection := db.Collection("users")
 
@@ -26,10 +26,10 @@ func (u UserModel) Register() (interface{}, error) {
 	})
 	if err != nil {
 		log.Println("Failed to insert user to DB: ", err)
-		return nil, err
+		return primitive.NilObjectID, err
 	}
 	log.Println("New user registered: ", res)
-	return res.InsertedID, nil
+	return res.InsertedID.(primitive.ObjectID), nil
 
 }
 

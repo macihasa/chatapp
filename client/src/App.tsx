@@ -1,50 +1,54 @@
 import './App.css';
 import Header from './Components/Header/Header';
-import { useState } from 'react';
-
-let socket = new WebSocket('ws://localhost:5000/ws');
+import Chat from './Components/Chat/Chat';
+import { useAuth0 } from '@auth0/auth0-react';
 
 function App() {
-  const [messages, Setmessages] = useState(Array<String>);
-  const [messageToSend, SetmessageToSend] = useState(String);
+  const {
+    // Auth state:
+    isAuthenticated,
+    user,
+    // Auth methods:
+    getAccessTokenSilently,
+    loginWithRedirect,
+    loginWithPopup,
+    logout,
+  } = useAuth0();
 
-  // Socket states
-  socket.onopen = (event) => {
-    socket.send('Connection opened.. ' + Date.now().toString());
-  };
-
-  socket.onmessage = (event: MessageEvent<any>) => {
-    Setmessages((prev) => [...prev, event.data]);
-  };
-
-  // Handlers
-  function handleKeyPress(event: React.KeyboardEvent<HTMLInputElement>) {
-    if (event.key === 'Enter') {
-      socket.send(messageToSend);
-      SetmessageToSend('');
+  async function sendRequest() {
+    let token;
+    try {
+      token = await getAccessTokenSilently();
+    } catch (error) {
+      console.log('Failed to retrieve Access Token:');
+      console.error(error);
+    }
+    try {
+      const response = await fetch('http://localhost:5000/', {
+        method: 'GET',
+        headers: {
+          Authentication: `Bearer ${await token}}`,
+        },
+      });
+      console.log(response);
+      console.log(token);
+    } catch (error) {
+      console.log('Failed authentication request to server');
+      console.error(error);
     }
   }
-  function handleChange(e: React.FormEvent<HTMLInputElement>) {
-    SetmessageToSend(e.currentTarget.value);
-  }
 
-  // Main function/JSX
   return (
     <div className="App">
       <Header />
+      <button onClick={() => loginWithRedirect()}>Login</button>
+      <button onClick={() => logout()}>logout</button>
+      <button onClick={sendRequest}>sendrequest</button>
       <div className="AppContainer">
-        <h2>Work in progress...</h2>
-        <input
-          type="text"
-          value={messageToSend}
-          onChange={handleChange}
-          onKeyDown={handleKeyPress}
-        />
-        {messages ? (
+        {isAuthenticated ? (
           <div>
-            {messages.map((current: String, index: number) => (
-              <div key={index}>{current}</div>
-            ))}
+            <Chat />
+            {user ? <h2>{user.email}</h2> : ''}
           </div>
         ) : null}
       </div>

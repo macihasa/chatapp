@@ -10,22 +10,22 @@ import (
 	"github.com/macihasa/chatapp/backend/pkg/models"
 )
 
-type httpErr struct {
-	msg string
-	err error
+// handleServerError checks any errors and logs them both to the client and standard output
+func handleServerError(w http.ResponseWriter, msg string, err error) {
+	if err != nil {
+		log.Println(msg, err)
+		http.Error(w, msg+" "+err.Error(), http.StatusInternalServerError)
+	}
 }
 
-func (e httpErr) handleError(w http.ResponseWriter) {
-	log.Println(e.msg, e.err)
-	w.WriteHeader(http.StatusInternalServerError)
-	fmt.Fprintf(w, e.msg+"%v", e.err)
-}
-
+// Landing is a health check of the server.
 func Landing(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "Server is live!", r.RemoteAddr)
 }
 
+// RegisterNewUser creates a new user database with the credentials passed in the request.
 func RegisterNewUser(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
@@ -33,32 +33,21 @@ func RegisterNewUser(w http.ResponseWriter, r *http.Request) {
 
 	defer func() {
 		err := r.Body.Close()
-		if err != nil {
-			e := httpErr{"Couldnt close body", err}
-			e.handleError(w)
-		}
+		handleServerError(w, "Couldn't close request body: ", err)
 	}()
 
 	bs, err := io.ReadAll(r.Body)
-	if err != nil {
-		e := httpErr{"Failed to read request body", err}
-		e.handleError(w)
-		return
-	}
+	handleServerError(w, "Failed to read request body: ", err)
 
 	err = json.Unmarshal(bs, &user)
-	if err != nil {
-		e := httpErr{"Failed to unmarshal: ", err}
-		e.handleError(w)
-		return
-	}
-	id, err := user.Register()
-	if err != nil {
-		e := httpErr{"Couldnt register user", err}
-		e.handleError(w)
-		return
-	}
+	handleServerError(w, "Failed to unmarshal body: ", err)
 
-	w.Write([]byte(fmt.Sprintln("New user registered: ", id, user)))
+	id, err := user.Register()
+	handleServerError(w, "Could not register user: ", err)
+
+	// Set user id to objectId created by the database
+	user.ID = id
+
+	w.Write([]byte(fmt.Sprintln("New user registered: ", user)))
 
 }
