@@ -8,6 +8,7 @@ import (
 	"log"
 	"math/big"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/golang-jwt/jwt"
@@ -30,30 +31,39 @@ type JWK struct {
 
 // AuthMiddleware validates RSA encrypted Bearer tokens passed in the authorization headers.
 // Awesome blog post! https://auth0.com/blog/navigating-rs256-and-jwks/#TL-DR
-func AuthMiddleware(next http.HandlerFunc) http.Handler {
+func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		// Handle preflight requests
+		w.Header().Set("Access-Control-Allow-Headers", "*")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "*")
+
+		if r.Method == "OPTIONS" {
+			return
+		}
+
 		// Retrieve token
 		tokenString := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 		if tokenString == "" {
+			log.Println("Authorization header missing.")
 			http.Error(w, "Authorization header missing.", http.StatusUnauthorized)
 			return
 		}
 
 		// Validate different properties of the token and retrieve a public key from auth0
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			issuer := "https://dev-klg37k4khu3qm746.us.auth0.com/"
-			audience := "http://localhost:5000/"
+			issuer := os.Getenv("AUTH0_ISSUER")
+			audience := os.Getenv("AUTH0_AUDIENCE")
 
 			// Validate headers
 			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-				log.Println("Expected alg RS256, received: " + token.Method.Alg())
-				http.Error(w, "Not authorized.", http.StatusUnauthorized)
+				return nil, fmt.Errorf("Expected alg RS256, received: " + token.Method.Alg())
 			}
 
 			// Validate claims
 			if token.Claims.(jwt.MapClaims)["iss"] != issuer {
-				log.Println("Expected issuer: ", issuer, " Got: ", token.Claims.(jwt.MapClaims)["iss"])
-				http.Error(w, "Not authorized.", http.StatusUnauthorized)
+				return nil, fmt.Errorf("Expected issuer: %v, Got %v", issuer, token.Claims.(jwt.MapClaims)["iss"])
 			}
 
 			var verifiedAudience bool
@@ -63,27 +73,25 @@ func AuthMiddleware(next http.HandlerFunc) http.Handler {
 				}
 			}
 			if !verifiedAudience {
-				log.Println("Expected audience: ", audience, " Got: ", token.Claims.(jwt.MapClaims)["aud"])
-				http.Error(w, "Not authorized.", http.StatusUnauthorized)
+				return nil, fmt.Errorf("Expected audience: %v, Got: %v", audience, token.Claims.(jwt.MapClaims)["aud"])
 			}
 
 			// Find matching key
-			publicKey, err := getPublicRSAKey("https://dev-klg37k4khu3qm746.us.auth0.com/.well-known/jwks.json", token.Header["kid"].(string))
+			publicKey, err := getPublicRSAKey(os.Getenv("AUTH0_KEYENDPOINT"), token.Header["kid"].(string))
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusUnauthorized)
+				return nil, fmt.Errorf("Failed to retrieve or match token with JWK: %v", err.Error())
 			}
 
 			return publicKey, nil
 		})
 
-		if err != nil {
-			log.Println("Token not authorized: ", err.Error())
+		if err != nil || !token.Valid {
+			log.Println("Token not valid:", err.Error())
 			http.Error(w, "Not authorized.", http.StatusUnauthorized)
+			return
 		}
 
-		if token.Valid {
-			log.Println("Token authorized!")
-		}
+		log.Println("Token authorized!")
 
 		// Authorized! Serve handler function
 		next.ServeHTTP(w, r)
@@ -121,7 +129,7 @@ func getPublicRSAKey(url string, tokenKid string) (interface{}, error) {
 
 	// Encode and return matched key
 	mod, err := base64.RawURLEncoding.DecodeString(jwk.N)
-	exp, err := base64.RawStdEncoding.DecodeString(jwk.E)
+	exp, err := base64.RawURLEncoding.DecodeString(jwk.E)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to decode modulus or exponent. %v", err)
 	}

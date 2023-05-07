@@ -27,11 +27,10 @@ function App() {
       const response = await fetch('http://localhost:5000/', {
         method: 'GET',
         headers: {
-          Authentication: `Bearer ${await token}}`,
+          Authorization: `Bearer ${token}`,
         },
       });
-      console.log(response);
-      console.log(token);
+      console.log(await response.json());
     } catch (error) {
       console.log('Failed authentication request to server');
       console.error(error);

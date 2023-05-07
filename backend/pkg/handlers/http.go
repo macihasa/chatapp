@@ -10,25 +10,13 @@ import (
 	"github.com/macihasa/chatapp/backend/pkg/models"
 )
 
-// handleServerError checks any errors and logs them both to the client and standard output
-func handleServerError(w http.ResponseWriter, msg string, err error) {
-	if err != nil {
-		log.Println(msg, err)
-		http.Error(w, msg+" "+err.Error(), http.StatusInternalServerError)
-	}
-}
-
 // Landing is a health check of the server.
 func Landing(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "Server is live!", r.RemoteAddr)
+	writeJSON(w, http.StatusOK, "{Healthcheck: Server responding!}")
 }
 
 // RegisterNewUser creates a new user database with the credentials passed in the request.
 func RegisterNewUser(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
 	var user models.UserModel
 
 	defer func() {
@@ -48,6 +36,23 @@ func RegisterNewUser(w http.ResponseWriter, r *http.Request) {
 	// Set user id to objectId created by the database
 	user.ID = id
 
+	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintln("New user registered: ", user)))
 
+}
+
+// writeJSON encodes and sends a json response.
+// It also adds neccessary http headers and provided statuscode.
+func writeJSON(w http.ResponseWriter, status int, v any) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	return json.NewEncoder(w).Encode(v)
+}
+
+// handleServerError checks any errors and logs them both to the client and standard output
+func handleServerError(w http.ResponseWriter, msg string, err error) {
+	if err != nil {
+		log.Println(msg, err)
+		http.Error(w, msg+" "+err.Error(), http.StatusInternalServerError)
+	}
 }
