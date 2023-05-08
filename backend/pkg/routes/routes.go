@@ -9,11 +9,11 @@ import (
 func InitMux() *mux.Router {
 	r := mux.NewRouter()
 
-	// HTTP - OPTIONS are allowed to handle preflight requests.
+	// HTTP: OPTIONS are allowed to handle preflight requests.
 	r.HandleFunc("/", middleware.AuthMiddleware(handlers.Landing)).Methods("GET", "OPTIONS")
-	r.HandleFunc("/users/register", handlers.RegisterNewUser).Methods("POST", "OPTIONS")
+	r.HandleFunc("/users/login", middleware.AuthMiddleware(handlers.Login)).Methods("POST", "OPTIONS")
 
-	// WEBSOCKET
+	// WEBSOCKET:
 	r.HandleFunc("/ws", handlers.WsNewClient)
 	return r
 }

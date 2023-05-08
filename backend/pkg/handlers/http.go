@@ -2,44 +2,41 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
-	"io"
 	"log"
 	"net/http"
 
 	"github.com/macihasa/chatapp/backend/pkg/models"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // Landing is a health check of the server.
 func Landing(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, "{Healthcheck: Server responding!}")
+	writeJSON(w, http.StatusOK, "{healthcheck: Server responding!}")
 }
 
-// RegisterNewUser creates a new user database with the credentials passed in the request.
-func RegisterNewUser(w http.ResponseWriter, r *http.Request) {
-	var user models.UserModel
+// After auth0 authentication is done, login checks wether or not a DB record has been created for the user.
+// If yes: return credentials. If no: create DB record and return credentials
+func Login(w http.ResponseWriter, r *http.Request) {
+	defer closeRequestBody(w, r)
 
-	defer func() {
-		err := r.Body.Close()
-		handleServerError(w, "Couldn't close request body: ", err)
-	}()
+	auth0User := new(models.Auth0User)
+	err := json.NewDecoder(r.Body).Decode(auth0User)
+	httpServerError(w, "Failed to decode request body:", err)
 
-	bs, err := io.ReadAll(r.Body)
-	handleServerError(w, "Failed to read request body: ", err)
+	user := auth0User.CreateUserObject()
 
-	err = json.Unmarshal(bs, &user)
-	handleServerError(w, "Failed to unmarshal body: ", err)
+	err = user.FindByID()
+	if err == mongo.ErrNoDocuments {
+		// Create record in DB if no user was found
+		err = user.Register()
+		httpServerError(w, "Failed to register user", err)
+	}
 
-	id, err := user.Register()
-	handleServerError(w, "Could not register user: ", err)
-
-	// Set user id to objectId created by the database
-	user.ID = id
-
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintln("New user registered: ", user)))
+	writeJSON(w, http.StatusOK, user)
 
 }
+
+// Helper functions --
 
 // writeJSON encodes and sends a json response.
 // It also adds neccessary http headers and provided statuscode.
@@ -49,10 +46,16 @@ func writeJSON(w http.ResponseWriter, status int, v any) error {
 	return json.NewEncoder(w).Encode(v)
 }
 
-// handleServerError checks any errors and logs them both to the client and standard output
-func handleServerError(w http.ResponseWriter, msg string, err error) {
+// httpServerError checks any errors and logs them both to the client and standard output
+func httpServerError(w http.ResponseWriter, msg string, err error) {
 	if err != nil {
 		log.Println(msg, err)
 		http.Error(w, msg+" "+err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// closeRequestBody closes a request body and handles any httperrors
+func closeRequestBody(w http.ResponseWriter, r *http.Request) {
+	err := r.Body.Close()
+	httpServerError(w, "Failed to close request body:", err)
 }
