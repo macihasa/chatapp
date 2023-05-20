@@ -15,7 +15,7 @@ func InitMux() *mux.Router {
 	r.HandleFunc("/users/friends/", middleware.AuthMiddleware(handlers.GetFriends)).Methods("POST", "OPTIONS")
 	r.HandleFunc("/users/friends/add/{id}", middleware.AuthMiddleware(handlers.SendFriendRequest)).Methods("POST", "OPTIONS")
 	r.HandleFunc("/users/friends/pending/", middleware.AuthMiddleware(handlers.GetPendingFriendRequests)).Methods("POST", "OPTIONS")
-	
+	r.HandleFunc("/users/friends/accept/{id}", middleware.AuthMiddleware(handlers.AcceptFriendRequest)).Methods("POST", "OPTIONS")
 
 	// WEBSOCKET:
 	r.HandleFunc("/ws", handlers.WsNewClient)

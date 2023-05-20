@@ -42,7 +42,6 @@ type Friends struct {
 	DateAdded    *time.Time `json:"dateAdded,omitempty"`
 }
 
-
 // CreateUserIfNotExist checks if a user exists by it's auth0id and creates a DB record if it doesn't.
 // Also, the DB user information is appended into the user object calling the method
 func (u *User) CreateUserIfNotExist() error {
@@ -89,7 +88,7 @@ func (u *User) GetFriends() ([]User, error) {
 		}
 		users = append(users, user)
 	}
-	
+
 	return users, nil
 }
 
@@ -117,6 +116,22 @@ func (u *User) GetNonFriendUsers() ([]User, error) {
 	return users, nil
 }
 
+// SendFriendRequest sends a friend request from the user to another user
+func (u *User) SendFriendRequest(toID int64) error {
+	stmt := `INSERT INTO friendrequests (fromid, toid, status) SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM friendrequests WHERE fromid = ? AND toid = ?)`
+
+	_, err := DB.Exec(stmt, u.ID, toID, "pending", u.ID, toID)
+
+	fmt.Printf("Sent friend request from %d to %d\n", u.ID, toID)
+
+	if err != nil {
+		log.Println("Failed to insert friend request to DB: ", err)
+		return err
+	}
+
+	return nil
+}
+
 // GetPendingFriendRequests finds all pending friend requests for the user
 func (u *User) GetPendingFriendRequests() ([]FriendRequest, error) {
 	stmt := `SELECT * FROM friendrequests WHERE toid = ? AND status = ?`
@@ -141,16 +156,28 @@ func (u *User) GetPendingFriendRequests() ([]FriendRequest, error) {
 	return requests, nil
 }
 
-// SendFriendRequest sends a friend request from the user to another user
-func (u *User) SendFriendRequest(toID int64) error {
-	stmt := `INSERT INTO friendrequests (fromid, toid, status) SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM friendrequests WHERE fromid = ? AND toid = ?)`
+func (u *User) AcceptFriendRequest(requestID int64) error {
+	stmt := `UPDATE friendrequests SET status = ? WHERE id = ? AND toid = ?`
 
-	_, err := DB.Exec(stmt, u.ID, toID, "pending", u.ID, toID)
+	_, err := DB.Exec(stmt, "accepted", requestID, u.ID)
+	if err != nil {
+		return fmt.Errorf("failed to update friend request in DB: %v", err)
+	}
 
-	fmt.Printf("Sent friend request from %d to %d\n", u.ID, toID)
+	stmt = `INSERT INTO friends (userid, friendid) SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM friends WHERE userid = ? AND friendid = ?)`
+	_, err = DB.Exec(stmt, u.ID, requestID, u.ID, requestID)
+	if err != nil {
+		return fmt.Errorf("failed to add friend in DB: %v", err)
+	}
+
+	stmt = `INSERT INTO friends (userid, friendid) SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM friends WHERE userid = ? AND friendid = ?)`
+	_, err = DB.Exec(stmt, requestID, u.ID, requestID, u.ID)
+	if err != nil {
+		return fmt.Errorf("failed to add friend in DB: %v", err)
+	}
 
 	if err != nil {
-		log.Println("Failed to insert friend request to DB: ", err)
+		log.Println("Failed to update friend request in DB: ", err)
 		return err
 	}
 

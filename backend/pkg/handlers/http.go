@@ -101,6 +101,26 @@ func GetPendingFriendRequests(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, requests)
 }
 
+func AcceptFriendRequest(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(mux.Vars(r)["id"])
+	handleHttpServerError(w, "Failed to convert id to int:", err)
+	log.Println("ID:", id)
+
+	user := new(models.User)
+
+	defer closeRequestBody(w, r)
+
+	err = json.NewDecoder(r.Body).Decode(user)
+	handleHttpServerError(w, "Failed to read request body:", err)
+	fmt.Println(user)
+
+	err = user.AcceptFriendRequest(int64(id))
+	handleHttpServerError(w, "Failed to add friend:", err)
+
+	writeJSON(w, http.StatusOK, user)
+
+}
+
 // ------------------ Helper functions ------------------
 
 // writeJSON encodes and sends a json response.
