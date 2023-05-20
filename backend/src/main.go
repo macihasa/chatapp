@@ -21,13 +21,10 @@ func main() {
 	r := routes.InitMux()
 	go handlers.StartDistributionHub()
 
-	err = models.StartDB()
-	if err != nil {
-		panic(err)
-	}
+	models.StartMYSQL()
+	log.Println("Successfully connected to DB")
 
-	// Start server
-	log.Printf("Server listening on port: 5000...\n")
+	log.Println("Server is running on localhost:5000..")
 	err = http.ListenAndServe("localhost:5000", r)
 	if err != nil {
 		log.Fatal(err)
