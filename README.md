@@ -1,6 +1,6 @@
 # chatapp
 
-Ive decided to start over on this project in another repository: github.com/macihasa/chat  
+Ive started over on this project in another repository.
 Reasons:
 1. I've decided to rethink the Friends system of the chat application. A DB table for friend requests seems necessary.
 2. I want to swap out mongoDB for a relational Database where i can write the SQL queries myself instead of relying on the Bson document format with aggregation pipelines etc. 
